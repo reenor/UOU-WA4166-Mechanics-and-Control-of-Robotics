@@ -1,4 +1,4 @@
-# Mechanics and Control of Robotics
+# Mechanics and Control of Robotics (BK21)
 ## Professor in charge
 - Prof. KANG, HEE-JUN
 ## Course time
