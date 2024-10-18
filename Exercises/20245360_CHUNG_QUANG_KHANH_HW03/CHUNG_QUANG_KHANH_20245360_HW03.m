@@ -1,107 +1,139 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Student name: CHUNG QUANG KHANH
 % Student ID:   20245360
-% Homework 02
+% Homework 03
 % Prof. KANG
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Definition of D-H Parameters
-% Link twist  % Link length   % Link offset   % Joint angle
-alpha0 =   0;   a0 = 0;         d1 = 0;         theta1 = 30; % -> {1}
-alpha1 = -90;   a1 = 0;         d2 = 0;         theta2 = 30; % -> {2}
-alpha2 =   0;   a2 = 1;         d3 = 0.5;       theta3 = 45; % -> {3}
-alpha3 = -90;   a3 = 0.3;       d4 = 1;         theta4 = 90; % -> {4}
-alpha4 =  90;   a4 = 0;         d5 = 0;         theta5 = 30; % -> {5}
-alpha5 = -90;   a5 = 0;         d6 = 0;         theta6 = 30; % -> {6}
+clc, clearvars, close all
 
-alphaT =   0;   aT = 0;         dT = 0.3;       thetaT =  0; % -> {T}
+dt = 1;
+num_sec = 5;
+t = 0:dt:num_sec;
 
-% Compute transformation matrix T from D-H Parameters
-T01 = DH_param(alpha0, a0, d1, theta1); % {0} -> {1}
-T12 = DH_param(alpha1, a1, d2, theta2); % {1} -> {2}
-T23 = DH_param(alpha2, a2, d3, theta3); % {2} -> {3}
-T34 = DH_param(alpha3, a3, d4, theta4); % {3} -> {4}
-T45 = DH_param(alpha4, a4, d5, theta5); % {4} -> {5}
-T56 = DH_param(alpha5, a5, d6, theta6); % {5} -> {6}
-T6T = DH_param(alphaT, aT, dT, thetaT); % {6} -> {Tool}
-T0T = T01*T12*T23*T34*T45*T56*T6T;  % {0} -> {Tool}
+% Gyroscope readings
+w_x = sin(2*t)/100;
+w_y = cos(5*t)/100;
+w_z = cos(t)/10;
 
-disp("a) Transformation matrix from {0} to {Tool} is as follows:");
-disp(T0T);
+% Euler angle: psi -> theta -> phi
+psi = zeros(1,11);   
+theta = zeros(1,11);
+phi = zeros(1,11);
 
-%   a) Transformation matrix from {0} to {Tool} is as follows:
+% Initial posture at (10, 10, 10) degree
+psi(1) = 10;
+theta(1) = 10;
+phi(1) = 10;
 
-%       -0.0669    0.9268   -0.3696   -1.1624
-%       -0.9820   -0.1268   -0.1402    1.1366
-%       -0.1768    0.3536    0.9186   -0.6437
-%        0         0         0         1
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-T06 = T01*T12*T23*T34*T45*T56;  % {0} -> {6}
-P06 = T06(1:3, 4);
-% P06 = [ -1.0516;
-%          1.1787;
-%         -0.9192 ];
-
-R06 = T06(1:3, 1:3);
-% R06 = [ -0.0669    0.9268   -0.3696;
-%         -0.9820   -0.1268   -0.1402;
-%         -0.1768    0.3536    0.9186 ];
-
-% DH parameter
-alpha = [alpha0 alpha1 alpha2 alpha3 alpha4 alpha5];
-a = [a0 a1 a2 a3 a4 a5];
-d = [d1 d2 d3 d4 d5 d6];
-
-% Find joint angles for frames 1, 2, and 3
-P = P06 - d(6)*R06(1:3, 3);
-C1 = sqrt(P(1)^2+P(2)^2);
-C2 = P(3)-d(1);
-C3 = sqrt(C1^2+C2^2);
-C4 = sqrt(a(3)^2+d(4)^2);
-D1 = d(2)/C1;
-D2 = (C3^2+a(2)^2-C4^2)/(2*a(2)*C3);
-D3 = (a(2)^2+C4^2-C3^2)/(2*a(2)*C4);
-
-aa1 = atan2d(D1,sqrt(abs(1-D1^2)));
-aa2 = atan2d(sqrt(abs(1-D2^2)),D2);
-b = atan2d(sqrt(abs(1-D3^2)),D3);
-p1 = atan2d(P(2),P(1));
-p2 = atan2d(C2,C1);
-
-ik_theta1 = p1-aa1;
-ik_theta2 = round(aa2-p2);
-ik_theta3 = round(b-90);
-ik_theta = [ik_theta1 ik_theta2 ik_theta3];
-
-% Apply forward kinematics at first three joints
-T = [];
-for n = 1:3
-    Txy = DH_param(alpha(n), a(n), d(n), ik_theta(n));    
-    T = [T; {Txy}];
+% Time rate of change of psi, theta, phi
+psi_dot = zeros(1,11);
+theta_dot = zeros(1,11);
+phi_dot = zeros(1,11);
+ 
+for i = 1:num_sec
+    B = [ -sind(theta(i))                   0               1;
+           sind(phi(i))*cosd(theta(i))      cosd(phi(i))    0;
+           cosd(phi(i))*cosd(theta(i))     -sind(phi(i))    0    ];
+    
+    W = [w_x(i); w_y(i); w_z(i)];
+    
+    % Compute time rate of change
+    R = inv(B)*W;
+    
+    psi_dot(i) = R(1);
+    theta_dot(i) = R(2);
+    phi_dot(i) = R(3);
+    
+    % Intergration for next posture
+    psi(i+1) = psi(i) + dt*psi_dot(i);
+    theta(i+1) = theta(i) + dt*theta_dot(i);
+    phi(i+1) = phi(i) + dt*phi_dot(i);
 end
+ 
+% Define the cubic, 4 face around
+X = [0 0 0 0 0 10; 10 0 10 10 10 10; 10 0 10 10 10 10; 0 0 0 0 0 10];
+Y = [0 0 0 0 10 0; 0 10 0 0 10 10; 0 10 10 10 10 10; 0 0 10 10 10 0];
+Z = [0 0 10 0 0 0; 0 0 10 0 0 0; 10 10 10 0 10 10; 10 10 10 0 10 10];
+ 
+xc = 0; yc = 0; zc = 0;     % coordinated of the center
+L = 1;                      % cube size (length of an edge)
+alpha = 1;                  % transparency (max=1=opaque)
+ 
+% Draw the cubic at the initial
+C = [0.1 0.4 0.8 0.8 0.4 0.1];  % color/face
+s = 0;
+ 
+X = L*(X-0.5) + xc;
+Y = L*(Y-0.5) + yc;
+Z = L*(Z-0.5) + zc;  
+ 
+figure();
+fill3(X,Y,Z,C); % draw cube
+axis equal;
+AZ=-20;         % azimuth
+EL=25;          % elevation
+view(AZ,EL);    % orientation of the axes
+    
+% Draw the cubic by time
+for j = 1:num_sec
+    a11 = cosd(psi(j))*cosd(theta(j))*cosd(phi(j)) - sind(psi(j))*sind(phi(j));
+    a21 = sind(psi(j))*cosd(theta(j))*cosd(phi(j)) + cosd(psi(j))*sind(phi(j));
+    a31 = -sind(theta(j))*cosd(phi(j));
 
-T03 = T{1}*T{2}*T{3};
-T36 = inv(T03)*T06;
+    a12 = -cosd(psi(j))*cosd(theta(j))*sind(phi(j)) - sind(psi(j))*cosd(phi(j));
+    a22 = -sind(psi(j))*cosd(theta(j))*sind(phi(j)) + cosd(psi(j))*cosd(phi(j));
+    a32 = sind(theta(j))*sind(phi(j));
 
-% Find joint angles for frame 4, 5, and 6
-ik_theta4 = round(atan2d(T36(2,3),T36(1,3)));
-ik_theta5 = round(atan2d(sqrt(abs(1-T36(3,3)^2)),T36(3,3)));
-ik_theta6 = atan2d(T36(3,2),-T36(3,1));
-ik_theta_all = [ik_theta1 ik_theta2 ik_theta3 ik_theta4 ik_theta5 ik_theta6];
+    a13 = cosd(psi(j))*sind(theta(j));
+    a23 = sind(psi(j))*sind(theta(j));
+    a33 = cosd(theta(j));
 
-disp("b) Inverse Kinematic with the previous Transformation matrix is as follows:");
-disp("  Theta1     Theta2    Theta3   Theta4     Theta5   Theta6");
-disp(ik_theta_all);
+    K = [a11, a12, a13; a21, a22, a23; a31, a32, a33];
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Row 1
+    temp3 = [X(1,:); Y(1,:); Z(1,:)];
+    temp4 = K*temp3;
 
+    X(1,:) = temp4(1,:);
+    Y(1,:) = temp4(2,:);
+    Z(1,:) = temp4(3,:);
 
+    % Row 2
+    temp5 = [X(2,:); Y(2,:); Z(2,:)];
+    temp6 = K*temp5;
 
+    X(2,:) = temp6(1,:);
+    Y(2,:) = temp6(2,:);
+    Z(2,:) = temp6(3,:);
 
+    % Row 3
+    temp7 = [X(3,:); Y(3,:); Z(3,:)];
+    temp8 = K*temp7;
 
+    X(3,:) = temp8(1,:);
+    Y(3,:) = temp8(2,:);
+    Z(3,:) = temp8(3,:);
+    % Row 4
+    temp9 = [X(4,:); Y(4,:); Z(4,:)];
+    temp10 = K*temp9;
 
+    X(4,:) = temp10(1,:);
+    Y(4,:) = temp10(2,:);
+    Z(4,:) = temp10(3,:);
 
+    s = 0;
 
+    X = L*(X-s) + xc;
+    Y = L*(Y-s) + yc;
+    Z = L*(Z-s) + zc; 
 
-                   
+    figure();
+
+    fill3(X,Y,Z,C); % draw cube
+    axis equal;
+    AZ=-20;         % azimuth
+    EL=25;          % elevation
+    view(AZ,EL);    % orientation of the axes  
+ end
+ 
