@@ -1,10 +1,11 @@
 function [R, P] = DH_2_R_P(alpha, a, d, theta)
 
-    R = [ cosd(theta)     -sind(theta)*cosd(alpha)    sind(theta)*sind(alpha);
-          sind(theta)      cosd(theta)*cosd(alpha)   -cosd(theta)*sind(alpha);
-          0                            sind(alpha)                cosd(alpha)  ];
-    P = [ a*cosd(theta);
-          a*sind(theta);
-          d              ];
+    R = [ cosd(theta)               -sind(theta)                0;
+          sind(theta)*cosd(alpha)    cosd(theta)*cosd(alpha)   -sind(alpha);
+          sind(theta)*sind(alpha)    cosd(theta)*sind(alpha)    cosd(alpha)  ];
+
+    P = [  a;
+          -d*sind(alpha);
+           d*cosd(alpha)  ];
 
 end
